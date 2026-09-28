@@ -82,26 +82,37 @@ export async function register(formData: FormData) {
     return { success: false, error: config.errorIdentitas };
   }
 
-  // Cek duplikat
-  const exists = await prisma.user.findFirst({
-    where: { OR: [{ email }, { nomorIdentitas }, { noHp }] },
-  });
+  try {
+    // Cek duplikat
+    const exists = await prisma.user.findFirst({
+      where: { OR: [{ email }, { nomorIdentitas }, { noHp }] },
+    });
 
-  if (exists) {
-    return { success: false, error: 'Email, Nomor Identitas, atau No HP sudah terdaftar.' };
+    if (exists) {
+      return { success: false, error: 'Email, Nomor Identitas, atau No HP sudah terdaftar.' };
+    }
+
+    const hashed = await bcrypt.hash(password, 10);
+    await prisma.user.create({
+      data: {
+        nomorIdentitas,
+        nama,
+        email,
+        noHp,
+        password: hashed,
+        tipePendaftaran,
+      },
+    });
+  } catch (error: any) {
+    if (error?.digest?.startsWith('NEXT_REDIRECT') || error?.message === 'NEXT_REDIRECT') {
+      throw error;
+    }
+    console.error('Register error:', error);
+    return {
+      success: false,
+      error: 'Gagal terhubung ke database. Pastikan koneksi database aktif dan tabel sudah terpasang.',
+    };
   }
-
-  const hashed = await bcrypt.hash(password, 10);
-  const user = await prisma.user.create({
-    data: {
-      nomorIdentitas,
-      nama,
-      email,
-      noHp,
-      password: hashed,
-      tipePendaftaran,
-    },
-  });
 
   redirect('/login?registered=true');
 }
@@ -117,26 +128,38 @@ export async function login(formData: FormData) {
   }
 
   const { email, password } = parsed.data;
-  const user = await prisma.user.findUnique({ where: { email } });
 
-  if (!user) {
-    return { success: false, error: 'Email atau password salah.' };
+  try {
+    const user = await prisma.user.findUnique({ where: { email } });
+
+    if (!user) {
+      return { success: false, error: 'Email atau password salah.' };
+    }
+
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) {
+      return { success: false, error: 'Email atau password salah.' };
+    }
+
+    const token = await createJwt({ userId: user.id, role: user.role });
+    const cookieStore = await cookies();
+    cookieStore.set('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60,
+    });
+  } catch (error: any) {
+    if (error?.digest?.startsWith('NEXT_REDIRECT') || error?.message === 'NEXT_REDIRECT') {
+      throw error;
+    }
+    console.error('Login error:', error);
+    return {
+      success: false,
+      error: 'Gagal terhubung ke database. Periksa konfigurasi DATABASE_URL di Neon / Vercel.',
+    };
   }
-
-  const valid = await bcrypt.compare(password, user.password);
-  if (!valid) {
-    return { success: false, error: 'Email atau password salah.' };
-  }
-
-  const token = await createJwt({ userId: user.id, role: user.role });
-  const cookieStore = await cookies();
-  cookieStore.set('token', token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 60 * 60,
-  });
 
   redirect('/dashboard');
 }
