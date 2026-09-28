@@ -1,0 +1,41 @@
+erDiagram
+    USER ||--o{ LAPORAN_SAMPAH : "membuat"
+    USER ||--o{ TRANSAKSI_SETOR : "mendapat"
+    USER ||--o{ REWARD_REDEEM : "menukar"
+    USER ||--o{ NOTIFIKASI : "menerima"
+
+    JENIS_SAMPAH ||--o{ LAPORAN_SAMPAH : "kategori"
+    WILAYAH ||--o{ LAPORAN_SAMPAH : "lokasi"
+
+    LAPORAN_SAMPAH ||--o| TRANSAKSI_SETOR : "diverifikasi menjadi"
+    REWARD ||--o{ REWARD_REDEEM : "diklaim pada"
+
+    USER {
+        string id PK
+        string nama
+        string email
+        string password_hash
+        string role
+        int poin
+    }
+    LAPORAN_SAMPAH {
+        string id PK
+        string userId FK
+        float berat
+        string status
+        int poinDidapat
+    }
+    TRANSAKSI_SETOR {
+        string id PK
+        string laporanId FK
+        string adminId FK
+        float beratKg
+        int totalPoin
+    }
+    REWARD_REDEEM {
+        string id PK
+        string userId FK
+        string rewardId FK
+        string status
+        int poinDigunakan
+    }

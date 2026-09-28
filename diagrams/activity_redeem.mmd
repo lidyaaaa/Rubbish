@@ -1,0 +1,12 @@
+flowchart TD
+    A(Mulai) --> B(Pilih Katalog Reward)
+    B --> C(Klik Tukar Reward)
+    C --> D{Cek Poin & Stok}
+    D -->|Tidak Cukup| E(Tampilkan Error)
+    D -->|Cukup| F(Sistem Kurangi Poin User)
+    F --> G(Sistem Kurangi Stok Reward)
+    G --> H(Buat Data Redeem PENDING)
+    H --> I(Admin Melihat Permintaan Reward)
+    I --> J(Admin Mengirim/Menyerahkan Reward)
+    J --> K(Admin Konfirmasi Selesai)
+    K --> L(Selesai)

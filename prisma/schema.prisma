@@ -1,0 +1,212 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ENUMS
+enum Role {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum TipePendaftaran {
+  RUMAH
+  SEKOLAH
+  PERUSAHAAN
+  APARTEMEN
+}
+
+enum StatusLaporan {
+  PENDING
+  DITERIMA
+  DIPROSES
+  SELESAI
+  DITOLAK
+}
+
+enum Prioritas {
+  RENDAH
+  SEDANG
+  TINGGI
+  DARURAT
+}
+
+enum StatusRedeem {
+  PENDING
+  DIPROSES
+  DIKIRIM
+  SELESAI
+  DIBATALKAN
+}
+
+enum KategoriReward {
+  VOUCHER
+  PRODUK
+  DONASI
+  LAINNYA
+}
+
+enum TipeNotifikasi {
+  INFO
+  SUCCESS
+  WARNING
+  ERROR
+}
+
+// TABEL UTAMA
+
+model User {
+  id              String           @id @default(uuid())
+  nomorIdentitas  String           @unique @map("nomor_identitas")
+  nama            String
+  email           String           @unique
+  noHp            String           @unique @map("no_hp")
+  password        String
+  tipePendaftaran TipePendaftaran  @default(RUMAH) @map("tipe_pendaftaran")
+  role            Role             @default(USER)
+  poin            Int              @default(0)
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  laporanSampah   LaporanSampah[]
+  rewardRedeem    RewardRedeem[]
+  notifikasi      Notifikasi[]
+  transaksiSetor  TransaksiSetor[] // Admin yang memproses setoran
+
+  @@map("users")
+}
+
+model JenisSampah {
+  id             String           @id @default(uuid())
+  namaJenis      String           @unique @map("nama_jenis")
+  deskripsi      String?
+  hargaPerKg     Float            @default(1000) @map("harga_per_kg")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  laporanSampah  LaporanSampah[]
+  transaksiSetor TransaksiSetor[]
+
+  @@map("jenis_sampah")
+}
+
+model Wilayah {
+  id             String          @id @default(uuid())
+  namaWilayah    String          @unique @map("nama_wilayah")
+  kodeWilayah    String?         @unique @map("kode_wilayah")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+
+  laporanSampah  LaporanSampah[]
+
+  @@map("wilayah")
+}
+
+model LaporanSampah {
+  id             String         @id @default(uuid())
+  berat          Float
+  alamatJemput   String?        @map("alamat_jemput") // Alamat penjemputan free-text
+  fotoUrl        String?        @map("foto_url")       // URL foto (upload lokal atau link eksternal)
+  tanggalLapor   DateTime       @default(now()) @map("tanggal_lapor")
+  deskripsi      String?
+  status         StatusLaporan  @default(PENDING)
+  prioritas      Prioritas      @default(SEDANG)
+  poinDidapat    Int            @default(0) @map("poin_didapat")
+
+  userId         String         @map("user_id")
+  jenisSampahId  String         @map("jenis_sampah_id")
+  wilayahId      String         @map("wilayah_id")
+
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jenisSampah    JenisSampah    @relation(fields: [jenisSampahId], references: [id], onDelete: Restrict)
+  wilayah        Wilayah        @relation(fields: [wilayahId], references: [id], onDelete: Restrict)
+
+  fotoSampah     FotoSampah?    // Relasi one-to-one lama (dipertahankan untuk kompatibilitas)
+  transaksiSetor TransaksiSetor? // Hasil setor oleh admin
+
+  @@map("laporan_sampah")
+}
+
+model FotoSampah {
+  id              String        @id @default(uuid())
+  imageUrl        String        @map("image_url")
+  laporanId       String        @unique @map("laporan_id")
+  createdAt       DateTime      @default(now()) @map("created_at")
+
+  laporanSampah   LaporanSampah @relation(fields: [laporanId], references: [id], onDelete: Cascade)
+
+  @@map("foto_sampah")
+}
+
+// TABEL TRANSAKSI SETOR (Admin input berat riil setelah terima sampah)
+model TransaksiSetor {
+  id             String       @id @default(uuid())
+  laporanId      String       @unique @map("laporan_id")   // One-to-one per laporan
+  adminId        String       @map("admin_id")
+  jenisSampahId  String       @map("jenis_sampah_id")
+  beratKg        Float        @map("berat_kg")             // Berat aktual ditimbang admin
+  totalPoin      Int          @map("total_poin")           // beratKg * hargaPerKg / 1000
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  laporan        LaporanSampah @relation(fields: [laporanId], references: [id], onDelete: Cascade)
+  admin          User          @relation(fields: [adminId], references: [id], onDelete: Restrict)
+  jenisSampah    JenisSampah   @relation(fields: [jenisSampahId], references: [id], onDelete: Restrict)
+
+  @@map("transaksi_setor")
+}
+
+// TABEL REWARD & REDEEM
+
+model Reward {
+  id             String         @id @default(uuid())
+  nama           String
+  deskripsi      String?
+  poinDibutuhkan Int            @map("poin_dibutuhkan")
+  stok           Int
+  gambarUrl      String?        @map("gambar_url")         // URL gambar reward
+  kategoriReward KategoriReward @default(VOUCHER) @map("kategori_reward")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  redeemList     RewardRedeem[]
+
+  @@map("reward")
+}
+
+model RewardRedeem {
+  id            String       @id @default(uuid())
+  userId        String       @map("user_id")
+  rewardId      String       @map("reward_id")
+  poinDigunakan Int          @map("poin_digunakan")  // = poin_keluar
+  status        StatusRedeem @default(PENDING)
+  createdAt     DateTime     @default(now()) @map("created_at")
+
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reward        Reward       @relation(fields: [rewardId], references: [id], onDelete: Restrict)
+
+  @@map("reward_redeem")
+}
+
+model Notifikasi {
+  id        String         @id @default(uuid())
+  userId    String         @map("user_id")
+  judul     String
+  pesan     String
+  type      TipeNotifikasi @default(INFO)
+  isRead    Boolean        @default(false) @map("is_read")
+  createdAt DateTime       @default(now()) @map("created_at")
+
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifikasi")
+}

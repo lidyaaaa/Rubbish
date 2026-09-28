@@ -1,0 +1,13 @@
+flowchart TD
+    A(Mulai) --> B(Isi Form Laporan Estimasi Berat)
+    B --> C(Sistem Simpan Laporan PENDING)
+    C --> D(Admin Melihat Laporan Masuk)
+    D --> E(Admin Datang Menimbang Aktual)
+    E --> F{Berat Sesuai?}
+    F -->|Tidak/Palsu| G(Tolak Laporan)
+    F -->|Sesuai| H(Input Berat Aktual & Konfirmasi Setor)
+    H --> I(Sistem Update Status = SELESAI)
+    I --> J(Sistem Tambah Poin User Atomik)
+    J --> K(Sistem Kirim Notifikasi Sukses)
+    K --> L(Selesai)
+    G --> L
