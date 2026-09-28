@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import ToastProvider from '@/components/ToastProvider';
 import NavBar from '@/components/NavBar';
+import AmbientBackground from '@/components/AmbientBackground';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -21,10 +22,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="id" className={`${inter.variable} h-full`} suppressHydrationWarning>
-      <body className="min-h-full flex flex-col font-sans antialiased">
+      <body className="min-h-full flex flex-col font-sans antialiased relative">
+        <AmbientBackground />
         <ToastProvider />
         <NavBar />
-        <main className="flex-1">{children}</main>
+        <main className="flex-1 flex flex-col">{children}</main>
       </body>
     </html>
   );
